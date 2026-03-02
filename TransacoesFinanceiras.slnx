@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Backend/">
+    <Project Path="src/Backend/TransacoesFinanceiras.API/TransacoesFinanceiras.API.csproj" />
+    <Project Path="src/Backend/TransacoesFinanceiras.Application/TransacoesFinanceiras.Application.csproj" />
+    <Project Path="src/Backend/TransacoesFinanceiras.Domain/TransacoesFinanceiras.Domain.csproj" />
+    <Project Path="src/Backend/TransacoesFinanceiras.Infrastructure/TransacoesFinanceiras.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/TransacoesFinanceiras.Exceptions/TransacoesFinanceiras.Exceptions.csproj" />
+  </Folder>
+  <Folder Name="/src/Tests/">
+    <Project Path="src/Tests/TransacoesFinanceiras.Tests/TransacoesFinanceiras.Tests.csproj" />
+  </Folder>
+</Solution>
