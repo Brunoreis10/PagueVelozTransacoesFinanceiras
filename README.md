@@ -246,6 +246,28 @@ Tests/
 - Prometheus Metrics
 - Middleware global de tratamento de exceções
 
+### 📁 Logs
+
+Os logs são gerados em formato JSON pela configuração do Serilog no `Program.cs`:
+
+```csharp
+.WriteTo.File(
+    new JsonFormatter(),
+    path: "logs/pagueveloz-.log",
+    rollingInterval: RollingInterval.Day,
+    retainedFileCountLimit: 30)
+```
+
+Os arquivos ficam na pasta `logs/` na raiz do projeto, com um arquivo por dia no formato:
+
+```
+logs/pagueveloz-20260303.log
+logs/pagueveloz-20260304.log
+...
+```
+
+> Os últimos 30 dias de logs são mantidos automaticamente.
+
 ---
 
 ## 🔐 Tratamento de Erros
@@ -396,21 +418,69 @@ Cria uma nova transação financeira.
 }
 ```
 
-**Request (Transferência — operation: 6):**
+**Cenário de Transferência entre contas do mesmo cliente — operation: 6:**
+
+> Pré-requisito: conta origem deve ter saldo. Siga os passos abaixo.
+
+**Passo 1 — Criar duas contas para o mesmo cliente:**
 ```json
+POST /api/Accounts
 {
-  "operation": 6,
-  "accountId": "ACC-86924fb8baa9428080addd354eb64f64",
-  "destinationAccountId": "ACC-39568e08a8d4443ba37bd72a5c71154d",
-  "amount": 20000,
-  "currency": "BRL",
-  "referenceId": "TXN-006",
-  "originalReferenceId": "string",
-  "metadata": {
-    "description": "Teste"
-  }
+  "clientId": "CLI-TRANSFER-01",
+  "initialBalance": 0,
+  "creditLimit": 0
 }
 ```
+Repetir para gerar a segunda conta. Exemplo de contas geradas:
+- Origem: `ACC-CF5EF560`
+- Destino: `ACC-5ABDD640`
+
+**Passo 2 — Creditar saldo na conta origem:**
+```json
+POST /api/Transactions
+{
+  "operation": 1,
+  "accountId": "ACC-CF5EF560",
+  "amount": 50000,
+  "currency": "BRL",
+  "referenceId": "TXN-TRANSFER-CREDIT-01",
+  "metadata": { "description": "Crédito para transferência" }
+}
+```
+
+**Passo 3 — Realizar a transferência:**
+```json
+POST /api/Transactions
+{
+  "operation": 6,
+  "accountId": "ACC-CF5EF560",
+  "destinationAccountId": "ACC-5ABDD640",
+  "amount": 50000,
+  "currency": "BRL",
+  "referenceId": "TXN-TRANSFER-01",
+  "originalReferenceId": "string",
+  "metadata": { "description": "Transferência entre contas" }
+}
+```
+
+**Response esperado:**
+```json
+{
+  "transactionId": "TXN-TRANSFER-01-PROCESSED",
+  "status": "success",
+  "balance": 0,
+  "reservedBalance": 0,
+  "availableBalance": 0,
+  "timestamp": "2026-03-03T00:00:00Z",
+  "errorMessage": null
+}
+```
+
+**Passo 4 — Verificar saldos após transferência:**
+- `GET /api/Accounts/ACC-CF5EF560` → `balance: 0`
+- `GET /api/Accounts/ACC-5ABDD640` → `balance: 50000`
+
+---
 
 #### `POST /api/Transactions/batch`
 Processar múltiplas transações em lote.

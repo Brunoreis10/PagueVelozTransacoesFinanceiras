@@ -221,7 +221,7 @@ namespace TransacoesFinanceiras.Domain.Entity
                 OperationTransaction.Transfer,
                 amount,
                 currency ?? "BRL",
-                referenceId
+                $"{referenceId}-DST"
             );
 
             Transactions.Add(sourceTransaction);
