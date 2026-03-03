@@ -165,7 +165,7 @@ namespace TransacoesFinanceiras.Tests.UnitTest
         {
             // Arrange
             var existingAccount = new Account("ACC-008", "CLI-008", initialBalance: 700m, creditLimit: 0m);
-            existingAccount.Credit(200m, "REF-DUP-001");
+            existingAccount.Credit(200m, "TXN-001-PROCESSED", "REF-DUP-001");
             var existingTransaction = existingAccount.Transactions.Last();
 
             _transactionRepositoryMock

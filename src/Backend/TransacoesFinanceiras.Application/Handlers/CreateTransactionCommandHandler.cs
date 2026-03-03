@@ -70,30 +70,31 @@ namespace TransacoesFinanceiras.Application.Handlers
             return await _retryPolicy.ExecuteAsync(async () =>
             {
                 var account = await _accountRepository.GetByIdAsync(request.Dto.AccountId, cancellationToken) ?? throw new InvalidOperationException($"Conta {request.Dto.AccountId} não encontrada");
+                var processedTransactionId = $"{request.Dto.ReferenceId}-PROCESSED";
                 try
                 {
                     switch (request.Dto.Operation)
                     {
                         case OperationTransaction.Credit:
-                            account.Credit(request.Dto.Amount, request.Dto.ReferenceId, request.Dto.Currency);
+                            account.Credit(request.Dto.Amount, processedTransactionId, request.Dto.ReferenceId, request.Dto.Currency);
                             break;
 
                         case OperationTransaction.Debit:
-                            account.Debit(request.Dto.Amount, request.Dto.ReferenceId, request.Dto.Currency);
+                            account.Debit(request.Dto.Amount, processedTransactionId, request.Dto.ReferenceId, request.Dto.Currency);
                             break;
 
                         case OperationTransaction.Reserve:
-                            account.Reserve(request.Dto.Amount, request.Dto.ReferenceId, request.Dto.Currency);
+                            account.Reserve(request.Dto.Amount, processedTransactionId, request.Dto.ReferenceId, request.Dto.Currency);
                             break;
 
                         case OperationTransaction.Capture:
-                            account.Capture(request.Dto.Amount, request.Dto.ReferenceId, request.Dto.Currency);
+                            account.Capture(request.Dto.Amount, processedTransactionId, request.Dto.ReferenceId, request.Dto.Currency);
                             break;
 
                         case OperationTransaction.Reversal:
                             if (string.IsNullOrWhiteSpace(request.Dto.OriginalReferenceId))
                                 throw new InvalidOperationException(ResourceMessagesException.ER_001);
-                            account.Reverse(request.Dto.OriginalReferenceId, request.Dto.ReferenceId, request.Dto.Currency);
+                            account.Reverse(request.Dto.OriginalReferenceId, processedTransactionId, request.Dto.ReferenceId, request.Dto.Currency);
                             break;
 
                         case OperationTransaction.Transfer:
@@ -104,7 +105,7 @@ namespace TransacoesFinanceiras.Application.Handlers
                             if (destinationAccount == null)
                                 throw new InvalidOperationException($"Conta de destino {request.Dto.DestinationAccountId} não encontrada");
 
-                            account.TransferTo(destinationAccount, request.Dto.Amount, request.Dto.ReferenceId, request.Dto.Currency);
+                            account.TransferTo(destinationAccount, request.Dto.Amount, processedTransactionId, request.Dto.ReferenceId, request.Dto.Currency);
                             await _accountRepository.UpdateAsync(destinationAccount, cancellationToken);
                             break;
 
@@ -132,6 +133,33 @@ namespace TransacoesFinanceiras.Application.Handlers
                         ErrorMessage = transaction.ErrorMessage
                     };
                 }
+                catch (InvalidOperationException ex) when (IsBusinessRuleViolation(ex))
+                {
+                    _logger.LogWarning("Regra de negócio violada para {ReferenceId}: {Error}", request.Dto.ReferenceId, ex.Message);
+
+                    var failedTransaction = new Domain.Entity.Transaction(
+                        processedTransactionId,
+                        request.Dto.AccountId,
+                        request.Dto.Operation,
+                        request.Dto.Amount,
+                        request.Dto.Currency,
+                        request.Dto.ReferenceId
+                    );
+                    failedTransaction.MarkAsFailed(ex.Message);
+
+                    await _transactionRepository.AddAsync(failedTransaction, cancellationToken);
+
+                    return new TransactionResponseDto
+                    {
+                        TransactionId = failedTransaction.TransactionId,
+                        Status = "failed",
+                        Balance = account.Balance,
+                        ReservedBalance = account.ReservedBalance,
+                        AvailableBalance = account.AvailableBalance,
+                        Timestamp = failedTransaction.Timestamp,
+                        ErrorMessage = ex.Message
+                    };
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Erro ao processar transação {ReferenceId}", request.Dto.ReferenceId);
@@ -139,6 +167,20 @@ namespace TransacoesFinanceiras.Application.Handlers
                 }
             });
         }
-    }
 
+        private static bool IsBusinessRuleViolation(InvalidOperationException ex)
+        {
+            // Erros de regra de negócio que devem retornar "failed" sem propagar exceção
+            var businessErrors = new[]
+            {
+                ResourceMessagesException.ER_010, // saldo insuficiente debit
+                ResourceMessagesException.ER_012, // saldo insuficiente reserve
+                ResourceMessagesException.ER_014, // saldo reservado insuficiente capture
+                ResourceMessagesException.ER_015, // saldo insuficiente reversal credit
+                ResourceMessagesException.ER_018, // saldo insuficiente transfer
+                ResourceMessagesException.ER_008, // conta inativa/bloqueada
+            };
+            return businessErrors.Contains(ex.Message);
+        }
+    }
 }

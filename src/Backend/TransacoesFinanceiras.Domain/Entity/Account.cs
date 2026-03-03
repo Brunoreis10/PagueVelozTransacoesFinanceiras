@@ -39,7 +39,7 @@ namespace TransacoesFinanceiras.Domain.Entity
 
         public decimal AvailableBalance => Balance + CreditLimit;
 
-        public void Credit(decimal amount, string referenceId, string? currency = "BRL")
+        public void Credit(decimal amount, string transactionId, string referenceId, string? currency = "BRL")
         {
             if (amount <= 0)
                 throw new InvalidOperationException(ResourceMessagesException.ER_007);
@@ -50,7 +50,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Balance += amount;
 
             var transaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                transactionId,
                 AccountId,
                 OperationTransaction.Credit,
                 amount,
@@ -61,7 +61,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Transactions.Add(transaction);
         }
 
-        public void Debit(decimal amount, string referenceId, string? currency = "BRL")
+        public void Debit(decimal amount, string transactionId, string referenceId, string? currency = "BRL")
         {
             if (amount <= 0)
                 throw new InvalidOperationException(ResourceMessagesException.ER_009);
@@ -75,7 +75,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Balance -= amount;
 
             var transaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                transactionId,
                 AccountId,
                 OperationTransaction.Debit,
                 amount,
@@ -86,7 +86,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Transactions.Add(transaction);
         }
 
-        public void Reserve(decimal amount, string referenceId, string? currency = "BRL")
+        public void Reserve(decimal amount, string transactionId, string referenceId, string? currency = "BRL")
         {
             if (amount <= 0)
                 throw new InvalidOperationException(ResourceMessagesException.ER_011);
@@ -101,7 +101,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             ReservedBalance += amount;
 
             var transaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                transactionId,
                 AccountId,
                 OperationTransaction.Reserve,
                 amount,
@@ -112,7 +112,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Transactions.Add(transaction);
         }
 
-        public void Capture(decimal amount, string referenceId, string? currency = "BRL")
+        public void Capture(decimal amount, string transactionId, string referenceId, string? currency = "BRL")
         {
             if (amount <= 0)
                 throw new InvalidOperationException(ResourceMessagesException.ER_013);
@@ -126,7 +126,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             ReservedBalance -= amount;
 
             var transaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                transactionId,
                 AccountId,
                 OperationTransaction.Capture,
                 amount,
@@ -137,7 +137,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Transactions.Add(transaction);
         }
 
-        public void Reverse(string originalReferenceId, string newReferenceId, string? currency = "BRL")
+        public void Reverse(string originalReferenceId, string newTransactionId, string newReferenceId, string? currency = "BRL")
         {
             var originalTransaction = Transactions
                 .FirstOrDefault(t => t.ReferenceId == originalReferenceId && t.Status == StatusTransaction.Success);
@@ -172,7 +172,6 @@ namespace TransacoesFinanceiras.Domain.Entity
                     break;
 
                 case OperationTransaction.Transfer:
-                    // Transfer reversals são tratados separadamente
                     break;
 
                 default:
@@ -180,7 +179,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             }
 
             var transaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                newTransactionId,
                 AccountId,
                 OperationTransaction.Reversal,
                 amount,
@@ -191,7 +190,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             Transactions.Add(transaction);
         }
 
-        public void TransferTo(Account destinationAccount, decimal amount, string referenceId, string? currency = "BRL")
+        public void TransferTo(Account destinationAccount, decimal amount, string transactionId, string referenceId, string? currency = "BRL")
         {
             ArgumentNullException.ThrowIfNull(destinationAccount);
 
@@ -208,7 +207,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             destinationAccount.Balance += amount;
 
             var sourceTransaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                transactionId,
                 AccountId,
                 OperationTransaction.Transfer,
                 amount,
@@ -217,7 +216,7 @@ namespace TransacoesFinanceiras.Domain.Entity
             );
 
             var destinationTransaction = new Transaction(
-                Guid.NewGuid().ToString(),
+                $"{transactionId}-DST",
                 destinationAccount.AccountId,
                 OperationTransaction.Transfer,
                 amount,

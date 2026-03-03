@@ -105,7 +105,7 @@ namespace TransacoesFinanceiras.Tests.IntegrationTest
             var account = new Account("ACC-INT-005", "CLI-INT-005", initialBalance: 800m, creditLimit: 0m);
             await _accountRepository.AddAsync(account);
 
-            account.Credit(200m, "REF-IDEMPOTENT-001", "BRL");
+            account.Credit(200m, "TXN-IDEMPOTENT-001", "REF-IDEMPOTENT-001", "BRL");
             await _accountRepository.UpdateAsync(account);
 
             // Act

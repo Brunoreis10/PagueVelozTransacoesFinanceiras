@@ -133,7 +133,7 @@ dotnet ef database update
 dotnet run
 ```
 
-Swagger disponível em: `https://localhost:5001/swagger`
+Swagger disponível em: `https://localhost:5000/swagger`
 
 ---
 
@@ -410,6 +410,72 @@ Cria uma nova transação financeira.
     "description": "Teste"
   }
 }
+```
+
+#### `POST /api/Transactions/batch`
+Processar múltiplas transações em lote.
+
+**Request (Crédito — operation: 1 e Débito - operation: 2):**
+```json
+[
+  {
+    "operation": 1,
+    "accountId": "ACC-6176867A",
+    "amount": 100000,
+    "currency": "BRL",
+    "referenceId": "TXN-001",
+    "metadata": { "description": "Crédito inicial" }
+  },
+  {
+    "operation": 2,
+    "accountId": "ACC-6176867A",
+    "amount": 20000,
+    "currency": "BRL",
+    "referenceId": "TXN-002",
+    "metadata": { "description": "Débito 1" }
+  },
+  {
+    "operation": 2,
+    "accountId": "ACC-6176867A",
+    "amount": 90000,
+    "currency": "BRL",
+    "referenceId": "TXN-003",
+    "metadata": { "description": "Débito insuficiente" }
+  }
+]
+```
+
+**Response (Crédito — operation: 1 e Débito - operation: 2):**
+```json
+[
+  {
+    "transactionId": "TXN-001-PROCESSED",
+    "status": "success",
+    "balance": 100000,
+    "reservedBalance": 0,
+    "availableBalance": 100000,
+    "timestamp": "2026-03-03T00:00:20.3483176Z",
+    "errorMessage": null
+  },
+  {
+    "transactionId": "TXN-002-PROCESSED",
+    "status": "success",
+    "balance": 80000,
+    "reservedBalance": 0,
+    "availableBalance": 80000,
+    "timestamp": "2026-03-03T00:00:20.4134959Z",
+    "errorMessage": null
+  },
+  {
+    "transactionId": "TXN-003-PROCESSED",
+    "status": "failed",
+    "balance": 80000,
+    "reservedBalance": 0,
+    "availableBalance": 80000,
+    "timestamp": "2026-03-03T00:00:20.5018274Z",
+    "errorMessage": "Saldo disponível insuficiente para débito."
+  }
+]
 ```
 
 ---

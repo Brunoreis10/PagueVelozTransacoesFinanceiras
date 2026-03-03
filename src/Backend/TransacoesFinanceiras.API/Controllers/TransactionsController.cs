@@ -56,26 +56,40 @@ namespace TransacoesFinanceiras.API.Controllers
         public async Task<ActionResult<List<TransactionResponseDto>>> ProcessBatch(
             [FromBody] List<CreateTransactionDto> requests)
         {
-            try
+            var results = new List<TransactionResponseDto>();
+
+            foreach (var req in requests)
             {
-                var results = new List<TransactionResponseDto>();
-                foreach (var req in requests)
+                try
                 {
                     var result = await _mediator.Send(new CreateTransactionCommand(req));
                     results.Add(result);
                 }
-                return Ok(results);
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogWarning(ex, "Transação {ReferenceId} falhou: {Error}", req.ReferenceId, ex.Message);
+                    results.Add(new TransactionResponseDto
+                    {
+                        TransactionId = $"{req.ReferenceId}-FAILED",
+                        Status = "failed",
+                        ErrorMessage = ex.Message,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erro inesperado na transação {ReferenceId}", req.ReferenceId);
+                    results.Add(new TransactionResponseDto
+                    {
+                        TransactionId = $"{req.ReferenceId}-FAILED",
+                        Status = "failed",
+                        ErrorMessage = ex.Message,
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
             }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Erro ao processar transação: {Error}", ex.Message);
-                return BadRequest(new { error = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro inesperado ao processar transação");
-                return BadRequest(new { error = ex.Message });
-            }
+
+            return Ok(results);
         }
     }
 }
